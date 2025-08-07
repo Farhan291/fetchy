@@ -1,18 +1,19 @@
-CC= gcc 
+# Compiler and flags
+CC = gcc
 CFLAGS = -Wall -g
+LDFLAGS = -lssl -lcrypto
 
-TARGET= main
+TARGET = main
 
-OBJS = main.o server.o request/request.o response/response.o
+OBJS = main.o server.o request/request.o response/response.o ssl_connection/ssl_connection.o
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 
-main.o: main.c server.h request/request.h response/response.h
+main.o: main.c server.h request/request.h response/response.h ssl_connection/ssl_connection.h
 	$(CC) $(CFLAGS) -c main.c
-
 
 server.o: server.c server.h
 	$(CC) $(CFLAGS) -c server.c
@@ -20,9 +21,12 @@ server.o: server.c server.h
 request/request.o: request/request.c request/request.h
 	$(CC) $(CFLAGS) -c request/request.c -o request/request.o
 
-
 response/response.o: response/response.c response/response.h
 	$(CC) $(CFLAGS) -c response/response.c -o response/response.o
+
+ssl_connection/ssl_connection.o: ssl_connection/ssl_connection.c ssl_connection/ssl_connection.h
+	$(CC) $(CFLAGS) -c ssl_connection/ssl_connection.c -o ssl_connection/ssl_connection.o
+
 
 clean:
 	rm -f $(TARGET) $(OBJS)

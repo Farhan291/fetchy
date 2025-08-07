@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <openssl/ssl.h>
 #include "request.h"
 
-void request(int socket, char *domain, char *path)
+void request(SSL* ssl, char *domain, char *path)
 {
 
     char request[1024];
@@ -16,7 +17,7 @@ void request(int socket, char *domain, char *path)
                                            "Connection: close\r\n"
                                            "\r\n",
              path, domain);
-    ssize_t n = send(socket,request,z,0);
+    ssize_t n = SSL_write(ssl,request,z);
     if (n<0) perror("send() ");
 
 

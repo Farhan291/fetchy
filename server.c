@@ -7,7 +7,7 @@
 
 int socket_start(void)
 {
-    int rc;
+    
     int tcp_socket = -1;
     tcp_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (tcp_socket < 0)

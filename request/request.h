@@ -1,7 +1,9 @@
 #ifndef REQUEST_H
 #define REQUEST_H
 
+#include <openssl/ssl.h>
 
-void request(int socket, char *domain, char *path);
+
+void request(SSL* ssl , char *domain, char *path);
 
 #endif
