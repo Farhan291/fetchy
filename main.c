@@ -15,7 +15,7 @@
 #include "ssl_connection/ssl_connection.h"
 
 typedef struct
-{    
+{
     char *protocol;
     char *domain;
     char *path;
@@ -66,18 +66,21 @@ int main(int argc, char *argv[])
     {
         url = argv[1];
     }
-    
+
     url_details URL;
     url_details *pURL = &URL;
     url_details *resp = url_parser(pURL, url, "://", "/");
-    //printf("%s \n",resp->protocol);
-    const char* PORT;
-    if(strcmp(resp->protocol,"https")==0){
-        PORT="443";
-        //printf("443 \n ");
-    }else{
-        PORT="80";
-        //printf("80 \n");
+    // printf("%s \n",resp->protocol);
+    const char *PORT;
+    if (strcmp(resp->protocol, "https") == 0)
+    {
+        PORT = "443";
+        printf("443 \n ");
+    }
+    else
+    {
+        PORT = "80";
+        printf("80 \n");
     }
 
     printf("%s \n", resp->domain);
@@ -130,75 +133,138 @@ int main(int argc, char *argv[])
         perror("connect");
         close(socket);
     }
-    init_openssl();
-    SSL_CTX *ctx = createContext();
-    if (ctx == NULL)
+    if (strcmp(resp->protocol, "https") == 0)
     {
-        close(tcp_socket);
-        return 1;
-    }
-    if (check_certificate(ctx) != 0)
-    {
-        close(tcp_socket);
-        SSL_CTX_free(ctx);
-    }
-    SSL *ssl = create_ssl(ctx, tcp_socket,resp->domain);
-    if (ssl == NULL) {
-        SSL_CTX_free(ctx);
-        return 1;
-    }
-    if(verify_certificate(ssl)!=0){
+
+        init_openssl();
+        SSL_CTX *ctx = createContext();
+        if (ctx == NULL)
+        {
+            close(tcp_socket);
+            return 1;
+        }
+        if (check_certificate(ctx) != 0)
+        {
+            close(tcp_socket);
+            SSL_CTX_free(ctx);
+        }
+        SSL *ssl = create_ssl(ctx, tcp_socket, resp->domain);
+        if (ssl == NULL)
+        {
+            SSL_CTX_free(ctx);
+            return 1;
+        }
+        if (verify_certificate(ssl) != 0)
+        {
+            SSL_free(ssl);
+            SSL_CTX_free(ctx);
+            close(tcp_socket);
+            return 1;
+        }
+
+        request(ssl, resp->domain, resp->path);
+        ssize_t n;
+        char buffer[4096];
+        respo reply;
+        respo *replypoint = &reply;
+        respo *res;
+        char *response_data = NULL;
+        size_t bytes_recived = 0;
+
+        while ((n = SSL_read(ssl, buffer, sizeof(buffer) - 1)) > 0)
+        {
+            char *temp = realloc(response_data, bytes_recived + n);
+            if (temp == NULL)
+            {
+                perror("realloc() ");
+                free(response_data);
+                break;
+            }
+            response_data = temp;
+            memcpy(response_data + bytes_recived, buffer, n);
+            bytes_recived += n;
+        }
+        if (response_data != NULL)
+        {
+            response_data[bytes_recived] = '\0';
+        }
+
+        res = response(response_data, "\r\n\r\n", replypoint);
+        if (is_flag)
+        {
+            printf(" header: %s \n", res->header);
+        }
+
+        printf("body: %s", res->body);
+        free(res->original);
+
+        if (n < 0)
+        {
+            perror("recv()");
+        }
+        free(response_data);
+        free(pURL->original);
+        freeaddrinfo(result);
+        SSL_shutdown(ssl);
         SSL_free(ssl);
         SSL_CTX_free(ctx);
         close(tcp_socket);
-        return 1;
     }
-
-    request(ssl, resp->domain, resp->path);
-    ssize_t n;
-    char buffer[4096];
-    respo reply;
-    respo *replypoint = &reply;
-    respo *res;
-    char *response_data = NULL;
-    size_t bytes_recived = 0;
-
-    while ((n = SSL_read(ssl, buffer, sizeof(buffer) - 1)) > 0)
+    else
     {
-        char *temp = realloc(response_data, bytes_recived + n);
-        if (temp == NULL)
+        http_request(tcp_socket, resp->domain, resp->path);
+        ssize_t n;
+        char buffer[4096];
+        respo reply;
+        respo *replypoint = &reply;
+        respo *res;
+        char *response_data = NULL;
+        size_t bytes_recived = 0;
+        while ((n = recv(tcp_socket, buffer, sizeof(buffer) - 1, 0)) > 0)
+
         {
-            perror("realloc() ");
-            free(response_data);
-            break;
+
+            char *temp = realloc(response_data, bytes_recived + n);
+
+            if (temp == NULL)
+            {
+
+                perror("realloc() ");
+
+                free(response_data);
+
+                break;
+            }
+
+            response_data = temp;
+
+            memcpy(response_data + bytes_recived, buffer, n);
+
+            bytes_recived += n;
         }
-        response_data = temp;
-        memcpy(response_data + bytes_recived, buffer, n);
-        bytes_recived += n;
-    }
-    if (response_data != NULL)
-    {
-        response_data[bytes_recived] = '\0';
-    }
 
-    res = response(response_data, "\r\n\r\n", replypoint);
-    if (is_flag)
-    {
-        printf(" header: %s \n", res->header);
-    }
+        if (response_data != NULL)
+        {
+            response_data[bytes_recived] = '\0';
+        }
 
-    printf("body: %s", res->body);
-    free(res->original);
+        res = response(response_data, "\r\n\r\n", replypoint);
 
-    if (n < 0)
-    {
-        perror("recv()");
+        if (is_flag)
+        {
+            printf(" header: %s \n", res->header);
+        }
+        printf("body: %s", res->body);
+        free(res->original);
+
+        if (n < 0)
+        {
+            perror("recv()");
+        }
+
+        free(response_data);
+        free(pURL->original);
+        freeaddrinfo(result);
+        close(tcp_socket);
     }
-    free(response_data);
-    free(pURL->original);
-    freeaddrinfo(result);
-    SSL_shutdown(ssl);
-    SSL_free(ssl);
-    SSL_CTX_free(ctx);
-    close(tcp_socket);
 }

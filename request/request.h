@@ -5,5 +5,6 @@
 
 
 void request(SSL* ssl , char *domain, char *path);
+void http_request(int socket, char* domain, char* path);
 
 #endif
